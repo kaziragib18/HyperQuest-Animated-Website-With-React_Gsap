@@ -5,10 +5,17 @@ import "../index.css";
 import { useWindowScroll } from "react-use";
 import gsap from "gsap";
 import { TbMusicPause } from "react-icons/tb";
+
 const navItems = ["Home", "About", "Vault", "Prologue", "Contact"];
 
 const Navbar = () => {
-  const ismdScreen = window.innerWidth >= 768;
+  // Safely check screen size (avoids SSR issues)
+  const [ismdScreen, setIsmdScreen] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsmdScreen(window.innerWidth >= 768);
+    }
+  }, []);
 
   const navContainerRef = useRef(null);
   const audioElementRef = useRef(null);
@@ -29,36 +36,41 @@ const Navbar = () => {
   // If isAudioPlaying is true, the audio element plays; otherwise, it pauses
   useEffect(() => {
     if (isAudioPlaying) {
-      audioElementRef.current.play();
+      audioElementRef.current
+        ?.play()
+        .catch((err) => console.warn("Autoplay blocked:", err));
     } else {
-      audioElementRef.current.pause();
+      audioElementRef.current?.pause();
     }
   }, [isAudioPlaying]);
 
   const { y: currentScrollY } = useWindowScroll();
-  const [lastScrollY, setlastScrollY] = useState(0);
+  const lastScrollY = useRef(0); // useRef instead of state to prevent extra renders
   const [isNavVisible, setisNavVisible] = useState(true);
 
   // Effect to handle navigation visibility based on scroll position
   // If the user scrolls to the top, the navigation is visible
   useEffect(() => {
+    if (!navContainerRef.current) return;
+
     if (currentScrollY === 0) {
       setisNavVisible(true);
       navContainerRef.current.classList.remove("floating-nav");
-    } else if (currentScrollY > lastScrollY) {
+    } else if (currentScrollY > lastScrollY.current) {
       setisNavVisible(false);
       navContainerRef.current.classList.add("floating-nav");
-    } else if (currentScrollY < lastScrollY && ismdScreen) {
+    } else if (currentScrollY < lastScrollY.current && ismdScreen) {
       setisNavVisible(true);
       navContainerRef.current.classList.add("floating-nav");
     }
 
-    setlastScrollY(currentScrollY);
-  }, [currentScrollY, lastScrollY]);
+    lastScrollY.current = currentScrollY;
+  }, [currentScrollY, ismdScreen]);
 
   // Effect to animate the navigation container based on isNavVisible state
   // If isNavVisible is true, the navigation slides down; otherwise, it slides up
   useEffect(() => {
+    if (!navContainerRef.current) return;
     gsap.to(navContainerRef.current, {
       y: isNavVisible ? 0 : -100,
       opacity: isNavVisible ? 1 : 0,
